@@ -18,8 +18,8 @@ projects[advanced_help][version] = "1.2"
 projects[autoassignrole][subdir] = "contrib"
 projects[autoassignrole][version] = "1.2"
 
-;projects[captcha][subdir] = "contrib"
-;projects[captcha][version] = "2.4"
+projects[captcha][subdir] = "contrib"
+projects[captcha][version] = "2.4"
 
 projects[colorbox][subdir] = "contrib"
 projects[colorbox][version] = "1.4"
@@ -70,8 +70,8 @@ projects[imagefield][version] = "3.11"
 projects[jquery_update][subdir] = "contrib"
 projects[jquery_update][version] = "2.0-alpha1"
 
-; projects[labjs][subdir] = "contrib"
-; projects[labjs][version] = "1.3"
+projects[labjs][subdir] = "contrib"
+projects[labjs][version] = "1.3"
 
 projects[libraries][subdir] = "contrib"
 projects[libraries][version] = "1.0"
@@ -134,8 +134,6 @@ projects[formfilter][version] = "1.0"
 ; projects[xmlsitemap][subdir] = "contrib"
 ; projects[xmlsitemap][version] = "2.0-rc2"
 
-projects[node_export][subdir] = "contrib"
-projects[node_export][version] = "3.4"
 
 projects[menutrails][subdir] = "contrib"
 projects[menutrails][version] = "1.1"
@@ -187,8 +185,6 @@ projects[imce_wysiwyg][version] = "1.1"
 projects[login_destination][subdir] = "contrib"
 projects[login_destination][version] = "2.12"
 
-projects[login_destination][subdir] = "contrib"
-projects[login_destination][version] = "2.10"
 
 projects[page_title][subdir] = "contrib"
 projects[page_title][version] = "2.7"
@@ -212,10 +208,10 @@ libraries[ckeditor][directory_name] = "ckeditor"
 libraries[ckeditor][destination] = "libraries"
 
 ; Profile
-projects[proba][type] = "profile"
-projects[proba][download][type] = "git"
-projects[proba][download][destination] = "profiles"
-projects[proba][download][url]= "git://github.com/blackcoat77/proba.git"
+;projects[proba][type] = "profile"
+;projects[proba][download][type] = "git"
+;projects[proba][download][destination] = "profiles"
+;projects[proba][download][url]= "git://github.com/blackcoat77/proba.git"
 
 ;projects[proba][download][url]= "git://github.com/rocksoup/art_profile.git"
 
