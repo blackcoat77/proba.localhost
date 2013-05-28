@@ -149,11 +149,13 @@ projects[context][subdir] = "contrib"
 projects[context][version] = "3.1"
 
 
+; It is necessary to install v.2.1 otherwise will not work
 projects[install_profile_api][subdir] = "contrib"
-projects[install_profile_api][version] = "2.2"
+projects[install_profile_api][version] = "2.1"
 
+; It is necessary to install v.2.21 otherwise will not work
 projects[node_export][subdir] = "contrib"
-projects[node_export][version] = "3.4"
+projects[node_export][version] = "2.21"
 
 projects[imagecache_actions][subdir] = "contrib"
 projects[imagecache_actions][version] = "1.9"

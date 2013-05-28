@@ -208,10 +208,10 @@ libraries[ckeditor][directory_name] = "ckeditor"
 libraries[ckeditor][destination] = "libraries"
 
 ; Profile
-projects[proba][type] = "profile"
-projects[proba][download][type] = "git"
-projects[proba][download][destination] = "profiles"
-projects[proba][download][url]= "git://github.com/blackcoat77/proba.git"
+;projects[proba][type] = "profile"
+;projects[proba][download][type] = "git"
+;projects[proba][download][destination] = "profiles"
+;projects[proba][download][url]= "git://github.com/blackcoat77/proba.git"
 
 ;projects[proba][download][url]= "git://github.com/rocksoup/art_profile.git"
 

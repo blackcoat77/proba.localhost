@@ -1,13 +1,14 @@
 <?php
+// $Id: node_export_file.module,v 1.1.2.6 2010/02/12 17:37:02 jamesandres Exp $
 
 /**
  * @file
- * The Node export file module.
+ * The Node Export File module.
  *
  * Export helper module for handling CCK FileFields, Uploaded files, and Images.
  */
 
-define('NODE_EXPORT_FILE_FILES_DIR_SUBSTITUTION', '#FILES_DIRECTORY_PATH#');
+define('EXPORT_FILE_FILES_DIR_SUBSTITUTION', '#FILES_DIRECTORY_PATH#');
 
 /**
  * Implementation of hook_help().
@@ -29,17 +30,14 @@ function node_export_file_form_alter(&$form, $form_state, $form_id) {
   elseif ($form_id == 'node_export_settings') {
     drupal_add_js(drupal_get_path('module', 'node_export_file') .'/js/node_export_file_admin.js');
 
-    // Remove buttons, but store for reattaching.
-    $buttons = $form['buttons'];
-    unset($form['buttons']);
-
-    $form['file'] = array(
+    $form['node_export_file'] = array(
       '#type' => 'fieldset',
-      '#title' => t('Export files'),
+      '#title' => t('Export Files'),
+      '#weight' => -1,
     );
 
     $types = node_get_types('names');
-    $form['file']['node_export_file_types'] = array(
+    $form['node_export_file']['node_export_file_types'] = array(
       '#type' => 'checkboxes',
       '#title' => t('Files exported for content types'),
       '#default_value' => variable_get('node_export_file_types', array()),
@@ -48,21 +46,22 @@ function node_export_file_form_alter(&$form, $form_state, $form_id) {
     );
 
     $textarea_delivery = $form['basic']['node_export_node_code']['#default_value'];
+    $bulk_delivery = $form['basic']['node_export_bulk_code']['#default_value'];
 
-    $mode_message_display = ($textarea_delivery != 'file');
+    $mode_message_display = ($textarea_delivery != 'file' || $bulk_delivery != 'file');
 
-    $form['file']['node_export_file_mode'] = array(
+    $form['node_export_file']['node_export_file_mode'] = array(
       '#type' => 'radios',
       '#title' => t('File export mode'),
       '#default_value' => variable_get('node_export_file_mode', 'inline'),
       '#options' => array('inline' => t('Inside export code (base 64 encoded string)'), 'local' => t('Local file export'), 'remote' => t('Remote file export, URL')),
       '#description' => t('Should file exports be inline inside the export code, a local path to the file or a URL?  "Inside export code" is the easiest option to use, local and remote modes are more useful for power users.  <em>NOTE: Remote mode only works with a public files directory.</em>'),
-      '#prefix' => '<div id="node-export-file-mode-message"><div class="message warning" style="display: ' . ($mode_message_display ? 'block' : 'none') . ';">' . t('Warning, "Inside export code (base 64 encoded string)" mode generates much larger exports.  For this reason it is recommended you set the export code delivery methods to "Text file download".') . '</div></div>',
+      '#prefix' => '<div id="node-export-file-mode-message"><div class="message warning" style="display: ' . ($mode_message_display ? 'block' : 'none') . ';">' . t('Warning, "Inside export code (base 64 encoded string)" mode generates much larger exports.  For this reason it is recommended you set the export code delivery methods to "Text file download" (both <strong>Node export code delivery</strong> and <strong>Bulk node export code delivery</strong>).') . '</div></div>',
     );
 
-    $form['file']['node_export_file_assets_path'] = array(
+    $form['node_export_file']['node_export_file_assets_path'] = array(
       '#type' => 'textfield',
-      '#title' => t('Export FileField assets path'),
+      '#title' => t('Export FileField Assets Path'),
       '#size' => 60,
       '#maxlength' => 255,
       '#default_value' => variable_get('node_export_file_assets_path', ''),
@@ -76,9 +75,6 @@ function node_export_file_form_alter(&$form, $form_state, $form_id) {
       ),
       '#required' => FALSE,
     );
-
-    // Reattach buttons.
-    $form['buttons'] = $buttons;
   }
 }
 
@@ -91,65 +87,61 @@ function node_export_file_form_alter(&$form, $form_state, $form_id) {
  *   An extra paramater that allows this hook implementation to do work
  *   for other modules that are very similar to filefield (eg: upload).
  */
-function node_export_file_node_export_node_alter(&$node, $original_node, $op) {
-  if ($op == 'export') {
-    $types = array_filter(variable_get('node_export_file_types', array()));
-    if (!in_array($node->type, $types)) {
-      return;
-    }
-  }
-  node_export_file_alter_filefield($node, $original_node, $op, 'node_export_file_filefield_filter');
-  node_export_file_alter_upload($node, $original_node, $op);
-  node_export_file_alter_image($node, $original_node, $op);
+function filefield_node_export_node_alter(&$node, $original_node, $method) {
+  _node_export_file_node_alter($node, $original_node, $method, '_filefield_field_filter');
 }
 
 /**
- * FileField field filter callback used in node_export_file_alter_filefield().
+ * FileField field filter callback used in _node_export_file_node_alter().
  */
-function node_export_file_filefield_filter($attribute, $field) {
+function _filefield_field_filter($attribute, $field) {
   return (drupal_substr($attribute, 0, 6) == 'field_' && is_array($field));
 }
 
 /**
+ * Implementation of hook_node_export_node_alter().
+ *
  * Handles importing and exporting CCK FileFields
  */
-function node_export_file_alter_upload(&$node, $original_node, $op) {
+function upload_node_export_node_alter(&$node, $original_node, $method) {
   if (isset($original_node->files) && count($original_node->files) > 0) {
     // Re-attach files, node_export module strips them off
     $node->files = $original_node->files;
 
-    if ($op == 'export') {
+    if ($method == 'export') {
       // Mark all file uploads as "new", this is required by the upload module
       foreach ($node->files as $fid => $file) {
         $node->files[$fid]->new = TRUE;
       }
     }
 
-    node_export_file_alter_filefield($node, $original_node, $op, 'node_export_file_upload_filter');
+    _node_export_file_node_alter($node, $original_node, $method, '_upload_field_filter');
   }
 }
 
 /**
- * Upload module field filter callback used in node_export_file_alter_filefield().
+ * Upload module field filter callback used in _node_export_file_node_alter().
  */
-function node_export_file_upload_filter($attribute, $field) {
+function _upload_field_filter($attribute, $field) {
   return ($attribute == 'files' && is_array($field));
 }
 
 /**
+ * Implementation of hook_node_export_node_alter().
+ *
  * Handles importing and exporting photos uploaded to image nodes.  This
  * is more complicated than for filefields or upload attachments because
  * the image module doesn't attach the file objects for images to the node.
  * To get around this we create a special 'image_export_files' attribute
  * on the node.  This will be stripped off when the node is imported.
  */
-function node_export_file_alter_image(&$node, $original_node, $op) {
+function image_node_export_node_alter(&$node, $original_node, $method) {
   // Only act on image nodes
   if ($node->type != 'image') {
     return;
   }
 
-  if ($op == 'export') {
+  if ($method == 'export') {
     // Only export the original image, the build-derivatives attribute
     // is set later to rebuild all image sizes on the import side
     $result = db_query(
@@ -168,11 +160,11 @@ function node_export_file_alter_image(&$node, $original_node, $op) {
     $node->rebuild_images = TRUE;
   }
 
-  node_export_file_alter_filefield($node, $original_node, $op, 'node_export_file_image_filter');
+  _node_export_file_node_alter($node, $original_node, $method, '_image_field_filter');
 
   // The file objects have been saved to the database but the rest of the
   // image tables have not been hooked up yet.
-  if (($op == 'import') && !empty($node->image_export_files)) {
+  if (($method == 'save-edit' || $method == 'prepopulate') && !empty($node->image_export_files)) {
     $node->images = array();
 
     // Create the images array based on the imported files
@@ -183,16 +175,16 @@ function node_export_file_alter_image(&$node, $original_node, $op) {
 }
 
 /**
- * Upload module field filter callback used in node_export_file_alter_filefield().
+ * Upload module field filter callback used in _node_export_file_node_alter().
  */
-function node_export_file_image_filter($attribute, $field) {
+function _image_field_filter($attribute, $field) {
   return ($attribute == 'image_export_files' && is_array($field));
 }
 
 /**
  * Abstract hook_node_export_node_alter() used by filefield, upload, and image.
  */
-function node_export_file_alter_filefield(&$node, $original_node, $op, $attribute_filter_callback) {
+function _node_export_file_node_alter(&$node, $original_node, $method, $attribute_filter_callback) {
   $assets_path = variable_get('node_export_file_assets_path', '');
   $export_mode = variable_get('node_export_file_mode', 'inline');
 
@@ -206,8 +198,8 @@ function node_export_file_alter_filefield(&$node, $original_node, $op, $attribut
       $export_var = 'node_export_file_data'; break;
   }
 
-  if ($op == 'export') {
-    if (node_export_file_check_assets_path($export_mode, $assets_path) === FALSE) {
+  if ($method == 'export') {
+    if (_node_export_file_check_assets_path($export_mode, $assets_path) === FALSE) {
       // Don't continue if the assets path is not ready
       return;
     }
@@ -223,35 +215,35 @@ function node_export_file_alter_filefield(&$node, $original_node, $op, $attribut
 
     // Strip off anything that isn't a file, if no files are found skip to
     // the next attribute
-    if (($files = node_export_file_check_files($field)) == FALSE) {
+    if (($files = _node_export_file_check_files($field)) == FALSE) {
       continue;
     }
 
 
     foreach ($files as $i => $file) {
       // When exporting a node ...
-      if ($op == 'export') {
+      if ($method == 'export') {
         if (!isset($file->filepath) || !is_file($file->filepath)) {
           drupal_set_message(t("CCK file upload found on node, but doesn't exist on disk? '!path'", array('!path' => $file->filepath)), 'error');
           continue;
         }
 
-        $export_data = node_export_file_get_export_data($file, $export_mode, $assets_path);
+        $export_data = _node_export_file_get_export_data($file, $export_mode, $assets_path);
 
         if (is_object($field[$i])) {
           $field[$i]->{$export_var} = $export_data;
           $field[$i]->fid = NULL;
-          node_export_file_clean_local_file_path($field[$i]->filepath);
+          _node_export_file_clean_local_file_path($field[$i]->filepath);
         }
         elseif (is_array($field[$i])) {
           $field[$i][$export_var] = $export_data;
           $field[$i]['fid'] = NULL;
-          node_export_file_clean_local_file_path($field[$i]['filepath']);
+          _node_export_file_clean_local_file_path($field[$i]['filepath']);
         }
       }
       // When importing a node ...
-      elseif ($op == 'import') {
-        $result = node_export_file_import_file($file);
+      elseif ($method == 'save-edit' || $method == 'prepopulate') {
+        $result = _node_export_file_import_file($file);
 
         // The file was saved successfully, update the file field (by reference)
         if ($result == TRUE && isset($file->fid)) {
@@ -282,7 +274,7 @@ function node_export_file_alter_filefield(&$node, $original_node, $op, $attribut
  *   FALSE if the assets path is not ready, and files should be copied there
  *   NULL  if files shouldn't be copied to the assets path
  */
-function node_export_file_check_assets_path($export_mode, $assets_path) {
+function _node_export_file_check_assets_path($export_mode, $assets_path) {
   // If files are supposed to be copied to the assets path.
   if ($export_mode == 'local' && $assets_path) {
     // Ensure the assets path is created
@@ -309,7 +301,7 @@ function node_export_file_check_assets_path($export_mode, $assets_path) {
  * @return $files or FALSE
  *   Returns an array of $files objects, or FALSE if there are no files.
  */
-function node_export_file_check_files($original_files) {
+function _node_export_file_check_files($original_files) {
   $files = array();
 
   foreach ($original_files as $i => $file) {
@@ -335,7 +327,7 @@ function node_export_file_check_files($original_files) {
  *   Either empty ('') if files should not be copied to the assets path, or
  *   the path to a writable directory.
  */
-function node_export_file_get_export_data($file, $export_mode, $assets_path) {
+function _node_export_file_get_export_data($file, $export_mode, $assets_path) {
   if ($export_mode == 'local') {
     if ($assets_path) {
       $export_data = $assets_path .'/'. basename($file->filepath);
@@ -366,16 +358,16 @@ function node_export_file_get_export_data($file, $export_mode, $assets_path) {
  * files directory path.  This helps get around issues with multi-site
  * installations and non-standard files directory locations.
  */
-function node_export_file_clean_local_file_path(&$path) {
-  $path = preg_replace('/^'. preg_quote(file_directory_path(), '/') .'/', NODE_EXPORT_FILE_FILES_DIR_SUBSTITUTION, $path);
+function _node_export_file_clean_local_file_path(&$path) {
+  $path = preg_replace('/^'. preg_quote(file_directory_path(), '/') .'/', EXPORT_FILE_FILES_DIR_SUBSTITUTION, $path);
 }
 
 /**
- * Replaces the NODE_EXPORT_FILE_FILES_DIR_SUBSTITUTION with the files directory
+ * Replaces the EXPORT_FILE_FILES_DIR_SUBSTITUTION with the files directory
  * path, wherever found.
  */
-function node_export_file_unclean_local_file_path(&$path) {
-  $path = strtr($path, array(NODE_EXPORT_FILE_FILES_DIR_SUBSTITUTION => file_directory_path()));
+function _node_export_file_unclean_local_file_path(&$path) {
+  $path = strtr($path, array(EXPORT_FILE_FILES_DIR_SUBSTITUTION => file_directory_path()));
 }
 
 /**
@@ -387,10 +379,10 @@ function node_export_file_unclean_local_file_path(&$path) {
  *   Depending on success or failure.  On success the $file object will
  *   have a valid $file->fid attribute.
  */
-function node_export_file_import_file(&$file) {
+function _node_export_file_import_file(&$file) {
   // Ensure the filepath is set correctly relative to this Drupal site's
   // files directory
-  node_export_file_unclean_local_file_path($file->filepath);
+  _node_export_file_unclean_local_file_path($file->filepath);
 
   // The file is already in the right location AND either the
   // node_export_file_path is not set or the node_export_file_path and filepath
@@ -401,9 +393,7 @@ function node_export_file_import_file(&$file) {
       !is_file($file->node_export_file_path) ||
       (
         is_file($file->node_export_file_path) &&
-        filesize($file->filepath) == filesize($file->node_export_file_path) &&
-        strtoupper(dechex(crc32(file_get_contents($file->uri)))) ==
-          strtoupper(dechex(crc32(file_get_contents($file->node_export_file_path))))
+        filesize($file->filepath) == filesize($file->node_export_file_path)
       )
     )
   ) {
@@ -485,7 +475,7 @@ function node_export_file_import_file(&$file) {
   }
   // Unknown error
   else {
-    drupal_set_message(t("Unknown error occurred attempting to import file: @filepath", array('@filepath' => $file->filepath)), 'error');
+    drupal_set_message(t("Unknown error occured attempting to import file."), 'error');
     return FALSE;
   }
 
